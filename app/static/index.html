@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubble PRO - Realtime Web Chat</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Auth Screen -->
+        <div id="auth-screen" class="auth-container">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <div class="auth-logo">
+                        <i class="fa-solid fa-comments"></i>
+                        <span>at_bubble</span>
+                    </div>
+                    <h2 id="auth-title">Welcome Back</h2>
+                    <p id="auth-subtitle">Sign in to continue chatting with Bubble PRO</p>
+                </div>
+                
+                <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+                    <div class="input-group">
+                        <label for="auth-username">Username</label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-user"></i>
+                            <input type="text" id="auth-username" placeholder="Enter username" required autocomplete="username">
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="auth-password">Password</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-lock"></i>
+                            <input type="password" id="auth-password" placeholder="Enter password" required autocomplete="current-password">
+                        </div>
+                    </div>
+
+                    <!-- Register fields (hidden by default) -->
+                    <div id="register-fields" class="hidden">
+                        <div class="input-group">
+                            <label>Choose Avatar</label>
+                            <div class="avatar-selector">
+                                <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=An" class="avatar-option selected" onclick="selectPresetAvatar(this)" alt="Avatar 1">
+                                <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Sara" class="avatar-option" onclick="selectPresetAvatar(this)" alt="Avatar 2">
+                                <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Minh" class="avatar-option" onclick="selectPresetAvatar(this)" alt="Avatar 3">
+                                <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Alex" class="avatar-option" onclick="selectPresetAvatar(this)" alt="Avatar 4">
+                                <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Luna" class="avatar-option" onclick="selectPresetAvatar(this)" alt="Avatar 5">
+                                <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Felix" class="avatar-option" onclick="selectPresetAvatar(this)" alt="Avatar 6">
+                            </div>
+                            <div class="custom-avatar-wrapper">
+                                <span class="or-text">or paste custom URL:</span>
+                                <input type="url" id="auth-avatar-url" placeholder="https://example.com/avatar.png">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="auth-btn">Sign In</button>
+                </form>
+                
+                <div class="auth-footer">
+                    <span id="auth-toggle-text">Don't have an account?</span>
+                    <button type="button" id="auth-toggle-btn" onclick="toggleAuthMode()">Sign Up</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Screen -->
+        <div id="chat-screen" class="chat-container hidden">
+            <!-- Leftmost Sidebar -->
+            <aside class="sidebar-nav">
+                <div class="brand">
+                    <div class="brand-logo">
+                        <i class="fa-solid fa-comments"></i>
+                    </div>
+                    <span class="brand-pro">PRO</span>
+                </div>
+                <nav class="nav-menu">
+                    <button class="nav-btn"><i class="fa-solid fa-house"></i></button>
+                    <button class="nav-btn active"><i class="fa-solid fa-message"></i></button>
+                    <button class="nav-btn"><i class="fa-solid fa-user"></i></button>
+                    <button class="nav-btn"><i class="fa-solid fa-gear"></i></button>
+                </nav>
+                <div class="user-profile-menu" onclick="toggleProfileTooltip(event)">
+                    <img id="current-user-avatar" src="https://api.dicebear.com/7.x/adventurer/svg?seed=An" class="user-avatar" alt="My Profile">
+                    <div class="online-indicator"></div>
+                    <div class="profile-tooltip" id="profile-tooltip-box">
+                        <span id="current-user-name">Username</span>
+                        <button onclick="handleLogout()" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Conversations Sidebar -->
+            <section class="conversations-pane">
+                <div class="pane-header">
+                    <h2>Messages</h2>
+                    <button class="icon-btn" onclick="openNewChatModal()"><i class="fa-regular fa-pen-to-square"></i></button>
+                </div>
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="conv-search" placeholder="Search" oninput="filterConversations()">
+                </div>
+                <div class="conversations-list" id="conversations-list-container">
+                    <!-- Conversations will load here dynamically -->
+                    <div class="loading-placeholder">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Loading conversations...
+                    </div>
+                </div>
+            </section>
+
+            <!-- Main Chat Area -->
+            <main class="chat-pane" id="chat-pane-container">
+                <!-- Empty State -->
+                <div id="chat-empty-state" class="empty-state">
+                    <div class="empty-state-illustration">
+                        <i class="fa-solid fa-message"></i>
+                    </div>
+                    <h3>Start a Conversation</h3>
+                    <p>Select an existing message thread on the left, or create a new chat to begin messaging.</p>
+                    <button class="btn btn-primary" onclick="openNewChatModal()">New Conversation</button>
+                </div>
+
+                <!-- Active Chat State -->
+                <div id="chat-active-state" class="chat-active-content hidden">
+                    <!-- Chat Header -->
+                    <header class="chat-header">
+                        <div class="chat-header-info">
+                            <div class="header-avatar-wrapper" id="active-chat-avatars">
+                                <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=An" class="header-avatar" alt="Avatar">
+                                <div class="online-indicator active"></div>
+                            </div>
+                            <div class="header-details">
+                                <h3 id="active-chat-name">An Tran</h3>
+                                <p id="active-chat-status">Active 5m ago</p>
+                            </div>
+                        </div>
+                        <div class="chat-header-actions">
+                            <button class="icon-btn"><i class="fa-solid fa-video"></i></button>
+                            <button class="icon-btn"><i class="fa-solid fa-phone"></i></button>
+                            <div class="actions-menu-container">
+                                <button class="icon-btn" onclick="toggleChatActionsMenu(event)"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                                <div id="chat-actions-menu" class="dropdown-menu hidden">
+                                    <!-- Options populated dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Chat Messages list -->
+                    <div class="chat-messages-container" id="chat-messages-scroll-area">
+                        <!-- Messages will load here dynamically -->
+                    </div>
+
+                    <!-- Quick Suggestions -->
+                    <div class="quick-replies-container" id="quick-replies-area">
+                        <button class="reply-chip" onclick="sendQuickReply(this)">Sounds good</button>
+                        <button class="reply-chip" onclick="sendQuickReply(this)">Maybe later?</button>
+                        <button class="reply-chip" onclick="sendQuickReply(this)">Send the link</button>
+                    </div>
+
+                    <!-- Chat Input Footer -->
+                    <footer class="chat-footer-bar">
+                        <button class="icon-btn attachment-btn" type="button" onclick="document.getElementById('chat-file-input').click()"><i class="fa-solid fa-plus"></i></button>
+                        <input type="file" id="chat-file-input" style="display: none;" onchange="handleFileUpload(this)">
+                        <form id="chat-input-form" onsubmit="handleSendMessage(event)" class="input-form">
+                            <input type="text" id="chat-message-input" placeholder="Type a message..." autocomplete="off">
+                            <button type="button" class="icon-btn emoji-btn" onclick="toggleEmojiPicker()"><i class="fa-regular fa-face-smile"></i></button>
+                            <button type="submit" class="send-btn" id="send-msg-btn">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </form>
+                        
+                        <!-- Emoji Picker Popover -->
+                        <div id="emoji-picker" class="emoji-picker hidden">
+                            <span onclick="appendEmoji('😊')">😊</span>
+                            <span onclick="appendEmoji('👍')">👍</span>
+                            <span onclick="appendEmoji('❤️')">❤️</span>
+                            <span onclick="appendEmoji('😂')">😂</span>
+                            <span onclick="appendEmoji('🔥')">🔥</span>
+                            <span onclick="appendEmoji('🎉')">🎉</span>
+                            <span onclick="appendEmoji('🙌')">🙌</span>
+                            <span onclick="appendEmoji('🤔')">🤔</span>
+                            <span onclick="appendEmoji('👀')">👀</span>
+                            <span onclick="appendEmoji('✨')">✨</span>
+                            <span onclick="appendEmoji('💡')">💡</span>
+                            <span onclick="appendEmoji('🚀')">🚀</span>
+                        </div>
+                    </footer>
+                </div>
+            </main>
+        </div>
+
+        <!-- New Chat Modal -->
+        <div id="new-chat-modal" class="modal-overlay hidden" onclick="closeNewChatModalOnOverlay(event)">
+            <div class="modal-content">
+                <header class="modal-header">
+                    <h3>New Conversation</h3>
+                    <button class="close-btn" onclick="closeNewChatModal()"><i class="fa-solid fa-xmark"></i></button>
+                </header>
+                <div class="modal-body">
+                    <div class="group-chat-toggle">
+                        <label class="switch-container">
+                            <input type="checkbox" id="group-mode-checkbox" onchange="toggleGroupMode()">
+                            <span class="switch-slider"></span>
+                            <span>Create Group Chat</span>
+                        </label>
+                    </div>
+                    
+                    <div id="group-name-container" class="input-group hidden">
+                        <label for="group-name">Group Name</label>
+                        <input type="text" id="group-name" placeholder="Enter group name">
+                    </div>
+
+                    <div class="users-list-section">
+                        <label>Select Participants</label>
+                        <div class="search-box modal-search">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="user-search" placeholder="Search users..." oninput="filterUsersList()">
+                        </div>
+                        <div class="users-list-container" id="modal-users-list">
+                            <!-- Users will load dynamically -->
+                        </div>
+                    </div>
+                </div>
+                <footer class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeNewChatModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="createConversationSubmit()">Create Chat</button>
+                </footer>
+            </div>
+        </div>
+
+        <!-- Add Member Modal -->
+        <div id="add-member-modal" class="modal-overlay hidden" onclick="closeAddMemberModalOnOverlay(event)">
+            <div class="modal-content">
+                <header class="modal-header">
+                    <h3>Add Member to Group</h3>
+                    <button class="close-btn" onclick="closeAddMemberModal()"><i class="fa-solid fa-xmark"></i></button>
+                </header>
+                <div class="modal-body">
+                    <div class="users-list-section">
+                        <label>Select User to Add</label>
+                        <div class="search-box modal-search">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="add-member-search" placeholder="Search users..." oninput="filterAddMemberUsersList()">
+                        </div>
+                        <div class="users-list-container" id="modal-add-member-users-list">
+                            <!-- Users will load dynamically -->
+                        </div>
+                    </div>
+                </div>
+                <footer class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeAddMemberModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="addMemberSubmit()">Add User</button>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script src="app.js"></script>
+</body>
+</html>
