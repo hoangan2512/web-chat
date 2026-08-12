@@ -8,7 +8,8 @@ const state = {
     activeSocket: null,
     users: [], // List of users for the new chat modal
     selectedPresetAvatar: "https://api.dicebear.com/7.x/adventurer/svg?seed=An",
-    selectedModalUserIds: new Set()
+    selectedModalUserIds: new Set(),
+    uploadedAvatarUrl: null
 };
 
 // API Base URL (assumes same host as static files)
@@ -20,6 +21,8 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initApp() {
+    loadSavedThemeAndAccent();
+    
     if (state.token && state.currentUserId) {
         // User seems logged in, fetch profile and show chat screen
         fetchUserProfile().then(success => {
@@ -33,6 +36,18 @@ function initApp() {
         // User not logged in, show auth screen
         showAuthScreen();
     }
+}
+
+function loadSavedThemeAndAccent() {
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    if (savedTheme === "light") {
+        document.body.classList.add("light-theme");
+    } else {
+        document.body.classList.remove("light-theme");
+    }
+    
+    const savedAccent = localStorage.getItem("accent") || "#0066fe";
+    document.documentElement.style.setProperty("--primary-blue", savedAccent);
 }
 
 // UI Toggles
@@ -435,17 +450,21 @@ function formatMessageContent(content) {
 
 function formatDateSeparator(timestamp) {
     const date = new Date(timestamp);
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    const dateStr = date.toLocaleDateString(undefined, options);
+    const options = { timeZone: 'Asia/Ho_Chi_Minh', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const dateStr = date.toLocaleDateString('en-US', options);
     
     const today = new Date();
-    if (date.toDateString() === today.toDateString()) {
-        return `Today, ${dateStr}`;
-    }
-    
     const yesterday = new Date();
     yesterday.setDate(today.getDate() - 1);
-    if (date.toDateString() === yesterday.toDateString()) {
+    
+    const dateGMT7 = date.toLocaleDateString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const todayGMT7 = today.toLocaleDateString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const yesterdayGMT7 = yesterday.toLocaleDateString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
+    
+    if (dateGMT7 === todayGMT7) {
+        return `Today, ${dateStr}`;
+    }
+    if (dateGMT7 === yesterdayGMT7) {
         return `Yesterday, ${dateStr}`;
     }
     
@@ -480,7 +499,7 @@ function renderMessages(messages) {
         const msgBlock = document.createElement("div");
         msgBlock.className = `message-block ${isIncoming ? 'incoming' : 'outgoing'}`;
         
-        const timeStr = new Date(m.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        const timeStr = new Date(m.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' });
         
         // Retrieve sender details
         let senderAvatar = "https://api.dicebear.com/7.x/adventurer/svg?seed=fallback";
@@ -606,7 +625,7 @@ function appendSingleMessage(payload) {
     const msgBlock = document.createElement("div");
     msgBlock.className = `message-block ${isIncoming ? 'incoming' : 'outgoing'}`;
     
-    const timeStr = new Date(payload.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    const timeStr = new Date(payload.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit' });
     
     msgBlock.innerHTML = `
         ${isIncoming ? `<img src="${payload.avatar_url}" class="msg-avatar" alt="Avatar">` : ''}
@@ -936,13 +955,15 @@ function formatTimeRelative(timestamp) {
     if (diffMins < 60) return `${diffMins}m`;
     if (diffHours < 24) return `${diffHours}h`;
     
-    // Check if yesterday
+    const dateGMT7 = date.toLocaleDateString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
+    
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
-    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    const yesterdayGMT7 = yesterday.toLocaleDateString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
     
-    // Return formatted date otherwise
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    if (dateGMT7 === yesterdayGMT7) return "Yesterday";
+    
+    return date.toLocaleDateString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', month: 'short', day: 'numeric' });
 }
 
 // User Profile Tooltip Toggler (Click behavior)
@@ -1154,4 +1175,502 @@ async function addMemberSubmit() {
     } catch (error) {
         alert(`Error: ${error.message}`);
     }
+}
+
+// ==========================================
+// CLIENT TAB ROUTING SYSTEM
+// ==========================================
+function switchTab(tabName, btn) {
+    // Highlight active nav button
+    document.querySelectorAll(".nav-menu .nav-btn").forEach(el => el.classList.remove("active"));
+    if (btn) {
+        btn.classList.add("active");
+    } else if (tabName === 'messages') {
+        const msgBtn = document.getElementById("messages-nav-btn");
+        if (msgBtn) msgBtn.classList.add("active");
+    }
+    
+    // Get references to panels
+    const convPane = document.querySelector(".conversations-pane");
+    const chatPane = document.getElementById("chat-pane-container");
+    const homePane = document.getElementById("home-pane");
+    const contactsPane = document.getElementById("contacts-pane");
+    const settingsPane = document.getElementById("settings-pane");
+    
+    // Hide all panels
+    convPane.classList.add("hidden");
+    chatPane.classList.add("hidden");
+    homePane.classList.add("hidden");
+    contactsPane.classList.add("hidden");
+    settingsPane.classList.add("hidden");
+    
+    // Show selected panel
+    if (tabName === 'messages') {
+        convPane.classList.remove("hidden");
+        chatPane.classList.remove("hidden");
+    } else if (tabName === 'home') {
+        homePane.classList.remove("hidden");
+        loadHomeDashboard();
+    } else if (tabName === 'contacts') {
+        contactsPane.classList.remove("hidden");
+        loadContactsTab();
+    } else if (tabName === 'settings') {
+        settingsPane.classList.remove("hidden");
+        loadSettingsTab();
+    }
+}
+
+// ==========================================
+// HOME DASHBOARD CONTROLLERS
+// ==========================================
+async function loadHomeDashboard() {
+    if (!state.currentUser) return;
+    
+    // Welcome Greeting
+    document.getElementById("dashboard-welcome-msg").textContent = `Hello, ${state.currentUser.username}!`;
+    document.getElementById("dashboard-date-str").textContent = new Date().toLocaleDateString('en-US', { 
+        timeZone: 'Asia/Ho_Chi_Minh',
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+    
+    // Calculate Stats
+    const activeChatsCount = state.conversations.length;
+    
+    let totalUnread = 0;
+    state.conversations.forEach(c => {
+        if (c.messages) {
+            totalUnread += c.messages.filter(m => !m.is_read && m.sender_id !== state.currentUserId).length;
+        }
+    });
+    
+    // Fetch users count to count who is online
+    let onlineCount = 0;
+    try {
+        const res = await fetch(`${API_BASE_URL}/users/`, {
+            headers: { "Authorization": `Bearer ${state.token}` }
+        });
+        if (res.ok) {
+            const users = await res.json();
+            onlineCount = users.filter(u => u.is_online).length;
+        }
+    } catch (e) {
+        console.error("Failed to fetch online counts:", e);
+    }
+    
+    document.getElementById("stat-chats-count").textContent = activeChatsCount;
+    document.getElementById("stat-unread-count").textContent = totalUnread;
+    document.getElementById("stat-online-count").textContent = onlineCount;
+    
+    // Load Recent Conversations List
+    const recentList = document.getElementById("dashboard-recent-chats-list");
+    recentList.innerHTML = "";
+    
+    // Clone and sort conversations by latest message timestamp
+    const sortedConvs = [...state.conversations]
+        .filter(c => c.messages && c.messages.length > 0)
+        .sort((a, b) => {
+            const lastA = new Date(a.messages[a.messages.length - 1].timestamp);
+            const lastB = new Date(b.messages[b.messages.length - 1].timestamp);
+            return lastB - lastA;
+        })
+        .slice(0, 3);
+        
+    if (sortedConvs.length === 0) {
+        recentList.innerHTML = '<div class="empty-list-placeholder">No recent messages. Start a new chat!</div>';
+    } else {
+        sortedConvs.forEach(conv => {
+            const name = getConversationName(conv);
+            const avatar = getConversationAvatar(conv);
+            const lastMsg = conv.messages[conv.messages.length - 1];
+            const contentSnippet = lastMsg ? (lastMsg.content.startsWith("/uploads/") ? "Sent an attachment" : lastMsg.content) : "No messages";
+            const timeAgo = lastMsg ? formatTimeRelative(lastMsg.timestamp) : "";
+            
+            const div = document.createElement("div");
+            div.className = "recent-chat-item";
+            div.innerHTML = `
+                <div class="recent-chat-item-left">
+                    <img src="${avatar}" class="recent-chat-item-avatar" alt="Avatar">
+                    <div class="recent-chat-item-details">
+                        <h4>${name}</h4>
+                        <p>${contentSnippet}</p>
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openChatFromDashboard(${conv.id})" style="padding: 6px 12px; font-size: 12px;">
+                    <i class="fa-solid fa-comment"></i> Chat
+                </button>
+            `;
+            recentList.appendChild(div);
+        });
+    }
+    
+    // Generate Activity Logs dynamically
+    const activitiesList = document.getElementById("dashboard-activities-list");
+    activitiesList.innerHTML = "";
+    
+    // Gather last 4 messages from all chats
+    const allRecentMessages = [];
+    state.conversations.forEach(conv => {
+        if (conv.messages) {
+            conv.messages.forEach(m => {
+                allRecentMessages.push({
+                    msg: m,
+                    convName: getConversationName(conv)
+                });
+            });
+        }
+    });
+    
+    allRecentMessages.sort((a, b) => new Date(b.msg.timestamp) - new Date(a.msg.timestamp));
+    const sliceLogs = allRecentMessages.slice(0, 4);
+    
+    if (sliceLogs.length === 0) {
+        activitiesList.innerHTML = '<div class="activity-item"><div class="activity-icon"><i class="fa-solid fa-info-circle"></i></div><div class="activity-details"><p>No recent activity detected.</p></div></div>';
+    } else {
+        sliceLogs.forEach(log => {
+            const isMe = log.msg.sender_id === state.currentUserId;
+            const senderName = isMe ? "You" : (log.msg.sender ? log.msg.sender.username : "Someone");
+            const actionText = log.msg.content.startsWith("/uploads/") ? "shared a file attachment" : `sent: "${log.msg.content.substring(0, 25)}${log.msg.content.length > 25 ? '...' : ''}"`;
+            const timestamp = formatTimeRelative(log.msg.timestamp);
+            
+            const div = document.createElement("div");
+            div.className = "activity-item";
+            div.innerHTML = `
+                <div class="activity-icon"><i class="fa-solid fa-circle-info"></i></div>
+                <div class="activity-details">
+                    <p><strong>${senderName}</strong> ${actionText} in <strong>${log.convName}</strong></p>
+                    <span>${timestamp} ago</span>
+                </div>
+            `;
+            activitiesList.appendChild(div);
+        });
+    }
+}
+
+function openChatFromDashboard(convId) {
+    switchTab('messages', null);
+    selectConversation(convId);
+}
+
+// ==========================================
+// CONTACTS DIRECTORY CONTROLLERS
+// ==========================================
+let allContactsCache = [];
+let selectedContactUserId = null;
+
+async function loadContactsTab() {
+    const listContainer = document.getElementById("contacts-list-container");
+    listContainer.innerHTML = '<div class="loading-placeholder"><i class="fa-solid fa-spinner fa-spin"></i> Loading contacts...</div>';
+    
+    // Reset selection details
+    document.getElementById("contact-details-container").innerHTML = `
+        <div class="empty-state">
+            <div class="empty-state-illustration">
+                <i class="fa-solid fa-address-book"></i>
+            </div>
+            <h3>Select a Contact</h3>
+            <p>Choose a contact from the left list to view their profile card and start messaging.</p>
+        </div>
+    `;
+    selectedContactUserId = null;
+    document.getElementById("contacts-search").value = "";
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/users/`, {
+            headers: { "Authorization": `Bearer ${state.token}` }
+        });
+        
+        if (!res.ok) throw new Error("Failed to load contacts list");
+        
+        allContactsCache = await res.json();
+        renderContactsList();
+    } catch (e) {
+        listContainer.innerHTML = `<div class="empty-list-placeholder"><i class="fa-solid fa-triangle-exclamation"></i> Error: ${e.message}</div>`;
+    }
+}
+
+function renderContactsList(filterQuery = "") {
+    const listContainer = document.getElementById("contacts-list-container");
+    listContainer.innerHTML = "";
+    
+    const filtered = allContactsCache.filter(u => {
+        if (!filterQuery) return true;
+        return u.username.toLowerCase().includes(filterQuery.toLowerCase());
+    });
+    
+    if (filtered.length === 0) {
+        listContainer.innerHTML = '<div class="empty-list-placeholder">No contacts found.</div>';
+        return;
+    }
+    
+    filtered.forEach(u => {
+        const isSelected = u.id === selectedContactUserId;
+        const item = document.createElement("div");
+        item.className = `contact-item ${isSelected ? 'selected' : ''}`;
+        item.onclick = () => selectContactDetail(u.id, item);
+        
+        item.innerHTML = `
+            <div class="contact-avatar-wrapper">
+                <img src="${u.avatar_url}" class="contact-avatar" alt="Avatar">
+                <div class="online-indicator ${u.is_online ? 'active' : 'offline'}"></div>
+            </div>
+            <div class="contact-info">
+                <span class="contact-name">${u.username}</span>
+                <span class="contact-status">${u.is_online ? 'Online' : 'Offline'}</span>
+            </div>
+        `;
+        listContainer.appendChild(item);
+    });
+}
+
+function filterContactsList() {
+    const query = document.getElementById("contacts-search").value;
+    renderContactsList(query);
+}
+
+function selectContactDetail(userId, element) {
+    selectedContactUserId = userId;
+    
+    // Highlight correct item
+    document.querySelectorAll("#contacts-list-container .contact-item").forEach(el => el.classList.remove("selected"));
+    if (element) element.classList.add("selected");
+    
+    const user = allContactsCache.find(u => u.id === userId);
+    if (!user) return;
+    
+    const container = document.getElementById("contact-details-container");
+    const statusText = user.is_online ? "Online Now" : (user.last_active_at ? `Active ${formatTimeRelative(user.last_active_at)} ago` : "Offline");
+    const joinedDate = user.joined_at ? new Date(user.joined_at).toLocaleDateString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: 'long', day: 'numeric' }) : "Recently";
+    
+    container.innerHTML = `
+        <div class="contact-profile-card">
+            <img src="${user.avatar_url}" class="contact-card-avatar" alt="Avatar">
+            <h2 class="contact-card-name">${user.username}</h2>
+            <div class="contact-card-status-badge ${user.is_online ? 'online' : 'offline'}">
+                <i class="fa-solid ${user.is_online ? 'fa-circle-dot' : 'fa-circle'}"></i>
+                <span>${statusText}</span>
+            </div>
+            
+            <div class="contact-card-meta">
+                <div class="meta-row">
+                    <span class="label">User ID</span>
+                    <span class="value">#${user.id}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="label">Joined</span>
+                    <span class="value">${joinedDate}</span>
+                </div>
+                <div class="meta-row">
+                    <span class="label">Account Status</span>
+                    <span class="value">${user.is_online ? 'Active' : 'Offline'}</span>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" onclick="chatWithUser(${user.id})" style="width: 100%; padding: 14px; font-weight: 700; font-size: 15px; border-radius: 12px;">
+                <i class="fa-solid fa-comment-dots"></i> Send Message
+            </button>
+        </div>
+    `;
+}
+
+async function chatWithUser(userId) {
+    // 1. Check if 1-on-1 chat exists in state conversations cache
+    const existing = state.conversations.find(c => !c.is_group && c.participants.some(p => p.user_id === userId));
+    
+    if (existing) {
+        // Direct route
+        switchTab('messages', null);
+        selectConversation(existing.id);
+    } else {
+        // Create new conversation
+        try {
+            const res = await fetch(`${API_BASE_URL}/conversations/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${state.token}`
+                },
+                body: JSON.stringify({
+                    participant_ids: [userId],
+                    is_group: false
+                })
+            });
+            
+            if (!res.ok) throw new Error("Failed to create new chat conversation");
+            
+            const newConv = await res.json();
+            
+            // Reload conversations cache
+            await loadConversations();
+            
+            // Switch tabs and select
+            switchTab('messages', null);
+            selectConversation(newConv.id);
+        } catch (e) {
+            alert(`Error starting chat: ${e.message}`);
+        }
+    }
+}
+
+// ==========================================
+// SETTINGS TAB CONTROLLERS
+// ==========================================
+function loadSettingsTab() {
+    if (!state.currentUser) return;
+    
+    // Display Name
+    document.getElementById("settings-username").value = state.currentUser.username;
+    
+    // Extract Avatar Seed if it's a Dicebear URL, otherwise it's custom
+    let seed = "";
+    if (state.currentUser.avatar_url && state.currentUser.avatar_url.includes("dicebear.com")) {
+        try {
+            const urlObj = new URL(state.currentUser.avatar_url);
+            seed = urlObj.searchParams.get("seed") || "demo";
+        } catch (e) {
+            seed = "demo";
+        }
+        state.uploadedAvatarUrl = null;
+    } else {
+        state.uploadedAvatarUrl = state.currentUser.avatar_url;
+        seed = "";
+    }
+    
+    document.getElementById("settings-avatar-seed").value = seed;
+    document.getElementById("settings-avatar-preview").src = state.currentUser.avatar_url || "https://api.dicebear.com/7.x/adventurer/svg?seed=demo";
+    
+    // Theme toggle checkbox
+    document.getElementById("settings-theme-toggle").checked = document.body.classList.contains("light-theme");
+    
+    // Color dot active highlights
+    const savedAccent = localStorage.getItem("accent") || "#0066fe";
+    document.querySelectorAll(".accent-color-picker .color-dot").forEach(dot => {
+        // Translate rgb background checks to hex
+        const bg = dot.style.backgroundColor;
+        let isMatch = false;
+        if (savedAccent === "#0084ff" && bg.includes("rgb(0, 132, 255)")) isMatch = true;
+        else if (savedAccent === "#8b5cf6" && bg.includes("rgb(139, 92, 246)")) isMatch = true;
+        else if (savedAccent === "#10b981" && bg.includes("rgb(16, 185, 129)")) isMatch = true;
+        else if (savedAccent === "#f43f5e" && bg.includes("rgb(244, 63, 94)")) isMatch = true;
+        // Also support exact hex check if set
+        if (savedAccent === "#0066fe" && bg.includes("rgb(0, 102, 254)")) isMatch = true;
+        
+        if (isMatch) {
+            document.querySelectorAll(".accent-color-picker .color-dot").forEach(d => d.classList.remove("active"));
+            dot.classList.add("active");
+        }
+    });
+}
+
+function previewSettingsAvatar() {
+    const seed = document.getElementById("settings-avatar-seed").value.trim() || "demo";
+    state.uploadedAvatarUrl = null;
+    const previewUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+    document.getElementById("settings-avatar-preview").src = previewUrl;
+}
+
+async function handleAvatarUpload(input) {
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const settingsPreview = document.getElementById("settings-avatar-preview");
+    const originalSrc = settingsPreview.src;
+    settingsPreview.src = "https://api.dicebear.com/7.x/adventurer/svg?seed=loading";
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/upload`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${state.token}`
+            },
+            body: formData
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Failed to upload avatar image");
+        }
+        
+        const data = await res.json();
+        state.uploadedAvatarUrl = data.url;
+        settingsPreview.src = data.url;
+        document.getElementById("settings-avatar-seed").value = "";
+    } catch (e) {
+        settingsPreview.src = originalSrc;
+        alert(`Error uploading avatar: ${e.message}`);
+    } finally {
+        input.value = "";
+    }
+}
+
+async function updateUserProfile() {
+    const newUsername = document.getElementById("settings-username").value.trim();
+    
+    let newAvatarUrl = "";
+    if (state.uploadedAvatarUrl) {
+        newAvatarUrl = state.uploadedAvatarUrl;
+    } else {
+        const seed = document.getElementById("settings-avatar-seed").value.trim() || "demo";
+        newAvatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+    }
+    
+    if (!newUsername) {
+        alert("Display name cannot be empty.");
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/users/me`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${state.token}`
+            },
+            body: JSON.stringify({
+                username: newUsername,
+                avatar_url: newAvatarUrl
+            })
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Failed to update profile details");
+        }
+        
+        const updatedUser = await res.json();
+        
+        // Success: update state cache
+        state.currentUser = updatedUser;
+        
+        // Update elements
+        document.getElementById("current-user-name").textContent = updatedUser.username;
+        document.getElementById("current-user-avatar").src = updatedUser.avatar_url;
+        
+        alert("Profile updated successfully!");
+    } catch (e) {
+        alert(`Error updating profile: ${e.message}`);
+    }
+}
+
+function toggleTheme(checkbox) {
+    if (checkbox.checked) {
+        document.body.classList.add("light-theme");
+        localStorage.setItem("theme", "light");
+    } else {
+        document.body.classList.remove("light-theme");
+        localStorage.setItem("theme", "dark");
+    }
+}
+
+function setAccentColor(colorHex, element) {
+    document.querySelectorAll(".accent-color-picker .color-dot").forEach(dot => dot.classList.remove("active"));
+    if (element) element.classList.add("active");
+    
+    document.documentElement.style.setProperty("--primary-blue", colorHex);
+    localStorage.setItem("accent", colorHex);
 }

@@ -11,7 +11,7 @@
     <!-- Font Awesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=1.1.2">
 </head>
 <body>
     <div id="app">
@@ -84,10 +84,10 @@
                     <span class="brand-pro">PRO</span>
                 </div>
                 <nav class="nav-menu">
-                    <button class="nav-btn"><i class="fa-solid fa-house"></i></button>
-                    <button class="nav-btn active"><i class="fa-solid fa-message"></i></button>
-                    <button class="nav-btn"><i class="fa-solid fa-user"></i></button>
-                    <button class="nav-btn"><i class="fa-solid fa-gear"></i></button>
+                    <button class="nav-btn" onclick="switchTab('home', this)"><i class="fa-solid fa-house"></i></button>
+                    <button class="nav-btn active" id="messages-nav-btn" onclick="switchTab('messages', this)"><i class="fa-solid fa-message"></i></button>
+                    <button class="nav-btn" onclick="switchTab('contacts', this)"><i class="fa-solid fa-user"></i></button>
+                    <button class="nav-btn" onclick="switchTab('settings', this)"><i class="fa-solid fa-gear"></i></button>
                 </nav>
                 <div class="user-profile-menu" onclick="toggleProfileTooltip(event)">
                     <img id="current-user-avatar" src="https://api.dicebear.com/7.x/adventurer/svg?seed=An" class="user-avatar" alt="My Profile">
@@ -197,6 +197,164 @@
                     </footer>
                 </div>
             </main>
+
+            <!-- Home Dashboard Pane -->
+            <section id="home-pane" class="dashboard-pane hidden">
+                <div class="dashboard-header">
+                    <div class="welcome-box">
+                        <h1 id="dashboard-welcome-msg">Hello, User!</h1>
+                        <p class="dashboard-subtitle" id="dashboard-date-str">Welcome to your Chat PRO Dashboard</p>
+                    </div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fa-solid fa-comments"></i></div>
+                        <div class="stat-info">
+                            <h3 id="stat-chats-count">0</h3>
+                            <p>Active Chats</p>
+                        </div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-icon"><i class="fa-solid fa-bell"></i></div>
+                        <div class="stat-info">
+                            <h3 id="stat-unread-count">0</h3>
+                            <p>Unread Messages</p>
+                        </div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-icon"><i class="fa-solid fa-circle-dot"></i></div>
+                        <div class="stat-info">
+                            <h3 id="stat-online-count">0</h3>
+                            <p>Online Contacts</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-content">
+                    <div class="dashboard-card recent-chats-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Conversations</h3>
+                        </div>
+                        <div class="card-body" id="dashboard-recent-chats-list">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card activities-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-bolt"></i> Recent Activity</h3>
+                        </div>
+                        <div class="card-body" id="dashboard-activities-list">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Contacts Directory Pane -->
+            <section id="contacts-pane" class="contacts-directory-pane hidden">
+                <!-- Contacts list sidebar -->
+                <div class="contacts-sidebar">
+                    <div class="pane-header">
+                        <h2>Contacts</h2>
+                    </div>
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="contacts-search" placeholder="Search contacts..." oninput="filterContactsList()">
+                    </div>
+                    <div class="contacts-list" id="contacts-list-container">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+                
+                <!-- Contact details preview card -->
+                <div class="contact-details-preview" id="contact-details-container">
+                    <div class="empty-state">
+                        <div class="empty-state-illustration">
+                            <i class="fa-solid fa-address-book"></i>
+                        </div>
+                        <h3>Select a Contact</h3>
+                        <p>Choose a contact from the left list to view their profile card and start messaging.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Pane -->
+            <section id="settings-pane" class="settings-pane hidden">
+                <div class="settings-header">
+                    <h2>Settings</h2>
+                    <p>Customize your profile, themes, and client preferences</p>
+                </div>
+                
+                <div class="settings-grid">
+                    <!-- Profile Configuration Card -->
+                    <div class="settings-section profile-settings-card">
+                        <h3><i class="fa-solid fa-user-gear"></i> Profile Settings</h3>
+                        <div class="profile-preview-box">
+                            <div class="avatar-preview-wrapper">
+                                <img id="settings-avatar-preview" src="https://api.dicebear.com/7.x/adventurer/svg?seed=demo" alt="Avatar Preview">
+                                <button type="button" class="avatar-upload-trigger" onclick="document.getElementById('settings-avatar-file').click()" title="Upload Avatar">
+                                    <i class="fa-solid fa-camera"></i>
+                                </button>
+                                <input type="file" id="settings-avatar-file" style="display: none;" accept="image/*" onchange="handleAvatarUpload(this)">
+                            </div>
+                            <div class="avatar-seed-input">
+                                <label for="settings-avatar-seed">Avatar Seed Name</label>
+                                <input type="text" id="settings-avatar-seed" placeholder="Enter seed (e.g. cat, John)" oninput="previewSettingsAvatar()">
+                                <small>Enter a keyword to generate or click the camera icon to upload an image.</small>
+                            </div>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="settings-username">Display Name</label>
+                            <input type="text" id="settings-username" placeholder="Your display name">
+                        </div>
+                        
+                        <button class="btn btn-primary" onclick="updateUserProfile()">Save Profile Changes</button>
+                    </div>
+                    
+                    <!-- Preferences Card -->
+                    <div class="settings-section preferences-settings-card">
+                        <h3><i class="fa-solid fa-palette"></i> Theme & Design</h3>
+                        
+                        <!-- Light/Dark Mode toggle -->
+                        <div class="settings-row">
+                            <div class="row-info">
+                                <h4>Light Mode</h4>
+                                <p>Enable a bright, clean style for daytime chat environments.</p>
+                            </div>
+                            <label class="switch-container">
+                                <input type="checkbox" id="settings-theme-toggle" onchange="toggleTheme(this)">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                        
+                        <!-- Accent Colors selection -->
+                        <div class="settings-row flex-column">
+                            <div class="row-info">
+                                <h4>Brand Accent Color</h4>
+                                <p>Choose a custom highlight color for unread badges, active states, and buttons.</p>
+                            </div>
+                            <div class="accent-color-picker">
+                                <span class="color-dot active" style="background-color: #0084ff;" onclick="setAccentColor('#0084ff', this)" title="Blue"></span>
+                                <span class="color-dot" style="background-color: #8b5cf6;" onclick="setAccentColor('#8b5cf6', this)" title="Violet"></span>
+                                <span class="color-dot" style="background-color: #10b981;" onclick="setAccentColor('#10b981', this)" title="Emerald"></span>
+                                <span class="color-dot" style="background-color: #f43f5e;" onclick="setAccentColor('#f43f5e', this)" title="Crimson"></span>
+                            </div>
+                        </div>
+                        
+                        <!-- Session actions -->
+                        <div class="settings-row danger-zone">
+                            <div class="row-info">
+                                <h4>Sign Out</h4>
+                                <p>Log out of your current session and clear local authorization keys.</p>
+                            </div>
+                            <button class="btn btn-danger" onclick="handleLogout()">Logout</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
 
         <!-- New Chat Modal -->
@@ -266,6 +424,6 @@
     </div>
 
     <!-- Application Script -->
-    <script src="app.js"></script>
+    <script src="app.js?v=1.1.2"></script>
 </body>
 </html>

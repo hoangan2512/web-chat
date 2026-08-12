@@ -1,22 +1,35 @@
 from fastapi import WebSocket, APIRouter, WebSocketException, Depends, WebSocketDisconnect
 from ..core.security import get_current_user_ws
-from ..db import models
+from ..db import models, crud
 from typing import List, Dict
+from ..db.session import get_db
+from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["WebSockets"])
 async def websocket_endpoint(
     websocket: WebSocket,
-    current_user: models.User = Depends(get_current_user_ws)
+    current_user: models.User = Depends(get_current_user_ws),
+    db: Session = Depends(get_db)
 ):
     
     await manager.connect(websocket, current_user.id)
     
     try:
         while True:
-            data = await websocket.receive_text()
+            data = await websocket.receive_json()
             
-            await manager.send_personal_message(f"[{current_user.username}]: {data}", current_user.id)
-    
+            conversation_id = data.get("conversation_id")
+            content = data.get("content")
+            
+            saved_message = crud.create_message(
+                db=db, 
+                content=content, 
+                conversation_id=conversation_id, 
+                sender_id=current_user.id
+            )
+            
+            participant_ids = crud.get_conversation_
+
     except WebSocketDisconnect:
         manager.disconnect(websocket, current_user.id)
 
