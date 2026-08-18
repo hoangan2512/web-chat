@@ -72,7 +72,9 @@ function showChatScreen() {
 
 // Authentication Logic
 function toggleAuthMode() {
-    const isRegister = document.getElementById("register-fields").classList.toggle("hidden");
+    const regFields = document.getElementById("register-fields");
+    regFields.classList.toggle("hidden");
+    const isRegister = !regFields.classList.contains("hidden");
     const title = document.getElementById("auth-title");
     const subtitle = document.getElementById("auth-subtitle");
     const btn = document.getElementById("auth-btn");
